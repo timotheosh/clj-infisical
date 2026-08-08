@@ -18,6 +18,8 @@ short-lived access token) and reads a single secret's value. See
 :END:
 [[https://clojars.org/io.github.timotheosh/clj-infisical][https://img.shields.io/clojars/v/io.github.timotheosh/clj-infisical.svg]]
 
+Latest release: [[https://clojars.org/io.github.timotheosh/clj-infisical][io.github.timotheosh/clj-infisical]] on Clojars.
+
 Leiningen/Boot:
 
 #+begin_src clojure

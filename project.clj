@@ -6,6 +6,10 @@
   :dependencies [[org.clojure/clojure "1.12.2"]
                  [org.clj-commons/clj-http-lite "1.0.13"]
                  [org.clojure/data.json "2.5.1"]]
-  :deploy-repositories [["releases" :clojars]
-                        ["snapshots" :clojars]]
+  :deploy-repositories [["releases" {:url "https://repo.clojars.org/"
+                                      :username :env/clojars_username
+                                      :password :env/clojars_password}]
+                        ["snapshots" {:url "https://repo.clojars.org/"
+                                      :username :env/clojars_username
+                                      :password :env/clojars_password}]]
   :repl-options {:init-ns clj-infisical.core})

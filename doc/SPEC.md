@@ -386,9 +386,16 @@ document stays the authoritative namespace list.
   `{:type :status :body :parsed}` shape (§5.1) that every HTTP-originated
   error branch in `auth`/`secrets` needs; centralizes that shape in one
   place instead of five near-identical map literals.
-- `error? [result] -> bool` — `(boolean (:type result))`, the discriminator
-  already implied by §5.1 (`Credentials`/`AccessToken`/`Secret` never have
-  a `:type` key; `ErrorData` always does).
+- `error? [result] -> bool` — `(keyword? (:type result))`. **Not** a bare
+  `(boolean (:type result))` (see §9 for the incident this caused): `Secret`
+  is an open passthrough of whatever Infisical returns (§5.1), and
+  Infisical's real secret objects carry a field literally named `type`
+  (`"shared"`/`"personal"`) — after keywordizing, `:type "shared"`, a
+  *string* value. `ErrorData`'s `:type` is always one of this library's own
+  `:clj-infisical/...` keywords, constructed by our own code and never
+  derived from parsed JSON (`clojure.data.json/read-str` never produces
+  keyword values) — so `keyword?` is the actual, safe discriminator; bare
+  truthiness is not.
 
 **Actions:**
 
@@ -734,6 +741,30 @@ test-writing. Kept here as a record of *why*, not as open items:
   there's no existing standard this library could align to or diverge from;
   `/etc/infisical/client_id` + `/etc/infisical/client_secret` stand as
   originally specified.
+- **Production bug: `error?` misidentified successful secret fetches as
+  errors** (§5.7) — discovered live, against a real self-hosted instance,
+  after the credential/TLS-trust issues were sorted out: `get-secret!` threw
+  `:clj-infisical/secret-not-found` for a secret that unambiguously existed.
+  Root cause: `error?` was `(boolean (:type result))`, and `Secret` (§5.1) is
+  an intentionally open passthrough of whatever Infisical's response
+  contains. Infisical's real secret objects carry a field literally named
+  `type` (`"shared"` vs. `"personal"`), which `keywordize-camel` turns into
+  `:type "shared"` — a *truthy*, non-nil value, so every successful fetch of
+  a shared secret was being thrown as an error. This is exactly the risk the
+  "pass everything through" design (§9, the `get-secret!`/`get-secret-raw!`
+  entry above) always carried and hadn't yet been forced to confront: an
+  open passthrough shape can collide with whatever internal convention is
+  used to tell it apart from a different shape. Fixed by tightening `error?`
+  to `(keyword? (:type result))` — `ErrorData`'s `:type` is always a keyword
+  we construct ourselves, never a value decoded from JSON, so this is a safe
+  discriminator where bare truthiness wasn't. Notably, §5.1 had *already*
+  documented `ErrorData`'s `:type` as `keyword` all along — this was purely
+  an implementation gap between the documented shape and what the code
+  actually checked, not a design error. Added a dedicated `errors_test.clj`
+  (previously `clj-infisical.errors` had no direct unit tests of its own,
+  only indirect coverage via `credentials`/`auth`/`secrets`, none of whose
+  fixtures happened to include a field named `type`) plus a passthrough
+  regression case in `secrets_test.clj` reproducing the real response shape.
 
 `test/clj_infisical/**` should now be written straight from §8, before any
 `src/clj_infisical/**` implementation exists.

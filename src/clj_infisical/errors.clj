@@ -23,8 +23,18 @@
   {:type type :status status :body body :parsed parsed})
 
 (defn error?
+  "True only when :type is a keyword. ErrorData's :type is always one of
+   this library's own :clj-infisical/... keywords, constructed by our own
+   code -- never derived from parsed JSON (clojure.data.json/read-str never
+   produces keyword values). A bare `(:type result)` truthiness check isn't
+   safe here: Secret is an open passthrough of whatever Infisical returns
+   (SPEC §5.1), and Infisical's real secret objects carry their own field
+   literally named \"type\" (e.g. \"shared\"/\"personal\"), which becomes
+   `:type \"shared\"` after keywordizing -- a *string* value that would
+   otherwise be misread as ErrorData and thrown on an entirely successful
+   fetch."
   [result]
-  (boolean (:type result)))
+  (keyword? (:type result)))
 
 (defn unwrap!
   "Given a calculation's result (either good Data, or ErrorData per SPEC

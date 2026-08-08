@@ -36,6 +36,16 @@
       (is (= "password" (:secret-key result)))
       (is (= 3 (:version result))))))
 
+(deftest parse-secret-response-type-field-passthrough-test
+  (testing "regression: a real Infisical secret's own \"type\" field
+            (shared/personal) must not be mistaken for ErrorData's :type"
+    (let [result (secrets/parse-secret-response
+                  {:status 200
+                   :body (tu/json-body {"secret" {"secretValue" "shh" "type" "shared"}})})]
+      (is (= "shh" (:secret-value result)))
+      (is (= "shared" (:type result)))
+      (is (nil? (:status result)) "not an ErrorData -- has no :status/:body/:parsed"))))
+
 (deftest parse-secret-response-not-found-test
   (testing "404 with a JSON body -> secret-not-found, real message preserved in :parsed"
     (let [result (secrets/parse-secret-response
@@ -71,6 +81,16 @@
     (with-redefs [http/get-json!
                   (constantly {:status 200 :body (tu/json-body {"secret" {"secretValue" "shh" "version" 3}})})]
       (is (= {:secret-value "shh" :version 3}
+             (secrets/fetch-secret! config-fixture tu/access-token-fixture "password"))))))
+
+(deftest fetch-secret!-succeeds-with-type-field-test
+  (testing "regression: end-to-end through fetch-secret!/errors/unwrap!, a
+            shared secret (Infisical's own \"type\" field) does not get
+            thrown as an error"
+    (with-redefs [http/get-json!
+                  (constantly {:status 200
+                               :body (tu/json-body {"secret" {"secretValue" "shh" "type" "shared"}})})]
+      (is (= {:secret-value "shh" :type "shared"}
              (secrets/fetch-secret! config-fixture tu/access-token-fixture "password"))))))
 
 (deftest fetch-secret!-throws-on-404-test

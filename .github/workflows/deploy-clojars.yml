@@ -25,6 +25,9 @@ jobs:
       - name: Run tests
         run: lein test
 
+      - name: Import GPG signing key
+        run: echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+
       - name: Deploy to Clojars
         env:
           CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}

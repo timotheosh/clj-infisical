@@ -11,5 +11,8 @@
                                       :password :env/clojars_password}]
                         ["snapshots" {:url "https://repo.clojars.org/"
                                       :username :env/clojars_username
-                                      :password :env/clojars_password}]]
+                                      :password :env/clojars_password}]
+                        ["clojars" {:url "https://repo.clojars.org/"
+                                    :username :env/clojars_username
+                                    :password :env/clojars_password}]]
   :repl-options {:init-ns clj-infisical.core})

@@ -1,8 +1,8 @@
 (ns clj-infisical.secrets
   "Fetching a secret's raw value via /api/v3/secrets/raw. See
    doc/SPEC.md §5.5."
-  (:require [clj-infisical.http :as http]
-            [clojure.data.json :as json]
+  (:require [clj-infisical.errors :as errors]
+            [clj-infisical.http :as http]
             [clojure.string :as str]))
 
 (defn secret-request
@@ -12,9 +12,6 @@
                   "environment" (:environment config)
                   "secretPath" (:secret-path config)}
    :headers {"Authorization" (str "Bearer " (:token token))}})
-
-(defn- try-parse-json [body]
-  (try (json/read-str body) (catch Exception _ nil)))
 
 (defn- camel->kebab-keyword [s]
   (-> s
@@ -27,25 +24,22 @@
 
 (defn parse-secret-response
   [{:keys [status body]}]
-  (let [parsed (try-parse-json body)]
+  (let [parsed (errors/parse-json body)]
     (cond
       (= status 200)
       (let [secret (get parsed "secret")]
         (if (and (map? secret) (contains? secret "secretValue"))
           (keywordize-camel secret)
-          {:type :clj-infisical/invalid-response :status status :body body :parsed parsed}))
+          (errors/error-data :clj-infisical/invalid-response status body parsed)))
 
       (= status 404)
-      {:type :clj-infisical/secret-not-found :status status :body body :parsed parsed}
+      (errors/error-data :clj-infisical/secret-not-found status body parsed)
 
       :else
-      {:type :clj-infisical/http-error :status status :body body :parsed parsed})))
+      (errors/error-data :clj-infisical/http-error status body parsed))))
 
 (defn fetch-secret!
   [config token secret-name]
   (let [{:keys [url query-params headers]} (secret-request config token secret-name)
-        response (http/get-json! url query-params headers)
-        result (parse-secret-response response)]
-    (if (:type result)
-      (throw (ex-info (str "Infisical secret fetch failed: " (name (:type result))) result))
-      result)))
+        response (http/get-json! url query-params headers)]
+    (errors/unwrap! "Infisical secret fetch failed" (parse-secret-response response))))

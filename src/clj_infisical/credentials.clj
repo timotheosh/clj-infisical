@@ -2,7 +2,8 @@
   "Resolving the Universal Auth client id/secret from environment variables
    or /etc/infisical files, with strict permission checks. See
    doc/SPEC.md §5.2."
-  (:require [clojure.java.io :as io]
+  (:require [clj-infisical.errors :as errors]
+            [clojure.java.io :as io]
             [clojure.string :as str])
   (:import [java.nio.file Files LinkOption]
            [java.nio.file.attribute PosixFilePermissions]))
@@ -129,7 +130,4 @@
         neither-env-var-set? (and (str/blank? (:client-id env)) (str/blank? (:client-secret env)))
         file (when neither-env-var-set? (stat-credential-files! "/etc/infisical"))
         result (select-credential-source {:env env :file file})]
-    (if (:type result)
-      (throw (ex-info (str "Infisical credential resolution failed: " (name (:type result)))
-                       result))
-      result)))
+    (errors/unwrap! "Infisical credential resolution failed" result)))

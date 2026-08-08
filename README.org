@@ -16,16 +16,21 @@ short-lived access token) and reads a single secret's value. See
 :PROPERTIES:
 :CUSTOM_ID: installation
 :END:
-Not yet published to Clojars, and the final group/artifact id isn't
-decided yet (see [[file:doc/SPEC.md::10.%20Packaging%20(Clojars)][doc/SPEC.md §10]]). Until then, build it locally:
+[[https://clojars.org/io.github.timotheosh/clj-infisical][https://img.shields.io/clojars/v/io.github.timotheosh/clj-infisical.svg]]
 
-#+begin_src bash
-git clone https://github.com/timotheosh/clj-infisical
-cd clj-infisical && lein install
+Latest release: [[https://clojars.org/io.github.timotheosh/clj-infisical][io.github.timotheosh/clj-infisical]] on Clojars.
+
+Leiningen/Boot:
+
+#+begin_src clojure
+[io.github.timotheosh/clj-infisical "0.1.0"]
 #+end_src
 
-then depend on =[clj-infisical "0.1.0-SNAPSHOT"]= from your local
-=~/.m2= as usual.
+=deps.edn=:
+
+#+begin_src clojure
+io.github.timotheosh/clj-infisical {:mvn/version "0.1.0"}
+#+end_src
 
 *** Credentials
 :PROPERTIES:

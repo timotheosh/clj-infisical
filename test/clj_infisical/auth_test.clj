@@ -5,6 +5,8 @@
             [clj-infisical.http :as http]
             [clj-infisical.test-util :as tu]))
 
+(def ^:private bad-creds-response-body (tu/json-body {"message" "bad creds"}))
+
 ;; ---------------------------------------------------------------------
 ;; §8.3 calculations
 ;; ---------------------------------------------------------------------
@@ -17,18 +19,15 @@
 
 (deftest parse-login-response-success-test
   (testing "200 with a valid body -> AccessToken"
-    (is (= {:token "t" :expires-in 7200 :token-type "Bearer"}
-           (auth/parse-login-response
-            {:status 200
-             :body "{\"accessToken\":\"t\",\"expiresIn\":7200,\"tokenType\":\"Bearer\"}"})))))
+    (is (= tu/access-token-fixture
+           (auth/parse-login-response {:status 200 :body tu/access-token-response-body})))))
 
 (deftest parse-login-response-auth-failed-test
   (testing "non-200 with a JSON body -> auth-failed, real message preserved in :parsed"
-    (let [result (auth/parse-login-response
-                  {:status 401 :body "{\"message\":\"bad creds\"}"})]
+    (let [result (auth/parse-login-response {:status 401 :body bad-creds-response-body})]
       (is (= :clj-infisical/auth-failed (:type result)))
       (is (= 401 (:status result)))
-      (is (= "{\"message\":\"bad creds\"}" (:body result)))
+      (is (= bad-creds-response-body (:body result)))
       (is (= {"message" "bad creds"} (:parsed result))))))
 
 (deftest parse-login-response-invalid-json-test
@@ -38,8 +37,7 @@
 
 (deftest parse-login-response-non-json-error-body-test
   (testing "non-200 with a non-JSON body (e.g. a proxy's HTML error page) degrades gracefully"
-    (let [result (auth/parse-login-response
-                  {:status 500 :body "<html>Bad Gateway</html>"})]
+    (let [result (auth/parse-login-response {:status 500 :body "<html>Bad Gateway</html>"})]
       (is (= :clj-infisical/auth-failed (:type result)))
       (is (nil? (:parsed result)))
       (is (= "<html>Bad Gateway</html>" (:body result))))))
@@ -50,18 +48,14 @@
 
 (deftest login!-delegates-test
   (testing "delegates to post-json! + parse-login-response, doesn't reimplement"
-    (with-redefs [http/post-json!
-                  (fn [_url _body]
-                    {:status 200
-                     :body "{\"accessToken\":\"t\",\"expiresIn\":7200,\"tokenType\":\"Bearer\"}"})]
-      (is (= {:token "t" :expires-in 7200 :token-type "Bearer"}
+    (with-redefs [http/post-json! (constantly {:status 200 :body tu/access-token-response-body})]
+      (is (= tu/access-token-fixture
              (auth/login! "https://kms.example.lan"
                            {:client-id "cid" :client-secret "csecret" :source :env}))))))
 
 (deftest login!-throws-on-failure-test
   (testing "auth-failed ErrorData becomes a thrown ex-info"
-    (with-redefs [http/post-json!
-                  (fn [_url _body] {:status 401 :body "{\"message\":\"bad creds\"}"})]
+    (with-redefs [http/post-json! (constantly {:status 401 :body bad-creds-response-body})]
       (let [{:keys [error]} (tu/try-invoke
                               #(auth/login! "https://kms.example.lan"
                                             {:client-id "cid" :client-secret "wrong" :source :env}))]

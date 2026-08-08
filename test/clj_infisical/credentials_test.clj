@@ -210,10 +210,10 @@
 
 (deftest resolve-credentials!-short-circuits-on-env-test
   (testing "does not touch the filesystem when env vars are already valid"
-    (with-redefs [creds/read-env! (fn [] {:client-id "eid" :client-secret "esecret"})
-                  creds/stat-credential-files! (fn [_] (throw (ex-info "should not be called" {})))]
-      (is (= {:client-id "eid" :client-secret "esecret" :source :env}
-             (creds/resolve-credentials!))))))
+    (with-redefs [creds/read-env! (constantly (select-keys tu/env-credentials-fixture
+                                                             [:client-id :client-secret]))
+                  creds/stat-credential-files! tu/unreachable!]
+      (is (= tu/env-credentials-fixture (creds/resolve-credentials!))))))
 
 (deftest resolve-credentials!-throws-on-rejection-test
   (testing "select-credential-source's ErrorData becomes a thrown ex-info"

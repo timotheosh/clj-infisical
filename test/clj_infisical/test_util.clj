@@ -56,7 +56,7 @@
         digit (fn [shift] (nth table (bit-and (bit-shift-right octal shift) 8r7)))]
     (str (digit 6) (digit 3) (digit 0))))
 
-(defn ^Path path [s]
+(defn path ^Path [s]
   (Paths/get s (make-array String 0)))
 
 (defn chmod! [file-path octal-mode]

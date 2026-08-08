@@ -357,6 +357,43 @@ Both are thin: the only "decision" either makes is `get-secret!`'s trivial
 key pluck, which is itself pure and needs no separate calculation function
 to justify unit-testing it in isolation.
 
+### 5.7 `clj-infisical.errors` — shared ErrorData/unwrap machinery
+
+Not part of the original namespace list (§5.2–§5.6 above) — added during
+implementation once `credentials`, `auth`, and `secrets` turned out to
+independently reimplement the same two things: a safe "parse this response
+body as JSON, or nil if it isn't" helper, and the `(if (:type result) (throw
+...) result)` check every one of `resolve-credentials!`/`login!`/
+`fetch-secret!` performs at its own action boundary. Recorded here so this
+document stays the authoritative namespace list.
+
+**Calculations:**
+
+- `parse-json [body] -> map | nil` — `clojure.data.json/read-str`, catching
+  parse failures and returning `nil` instead of throwing (an HTTP response
+  body is never guaranteed to be JSON). Used by `auth`/`secrets` for both
+  their success and error branches.
+- `error-data [type status body parsed] -> ErrorData` — builds the
+  `{:type :status :body :parsed}` shape (§5.1) that every HTTP-originated
+  error branch in `auth`/`secrets` needs; centralizes that shape in one
+  place instead of five near-identical map literals.
+- `error? [result] -> bool` — `(boolean (:type result))`, the discriminator
+  already implied by §5.1 (`Credentials`/`AccessToken`/`Secret` never have
+  a `:type` key; `ErrorData` always does).
+
+**Actions:**
+
+- `unwrap! [message-prefix result]` — returns `result` unchanged, or throws
+  an `ex-info` carrying it (message built from `message-prefix` + the error
+  `:type`) if `error?` is true. The one place all three of
+  `resolve-credentials!`, `login!`, and `fetch-secret!` turn a calculation's
+  returned `ErrorData` into a thrown one, replacing what was previously
+  three copies of the same three-line `if`.
+  `credentials`'s `insecure-credential-files`/`ambiguous-credentials`/
+  `credentials-not-found` `ErrorData` (which carries `:path`/`:reason`, not
+  `:status`/`:body`/`:parsed`) uses `unwrap!` too — it only inspects `:type`,
+  so it's agnostic to which other keys an `ErrorData` variant carries.
+
 ## 6. Environment variables
 
 | Variable | Required | Meaning |

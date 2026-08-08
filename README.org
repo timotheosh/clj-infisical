@@ -2,13 +2,97 @@
 :PROPERTIES:
 :CUSTOM_ID: clj-infisical
 :END:
-A Clojure library designed to ... well, that part is up to you.
+A small Clojure client for fetching secrets from [[https://infisical.com][Infisical]]. It
+authenticates using Universal Auth (a client id/secret exchanged for a
+short-lived access token) and reads a single secret's value. See
+[[file:doc/SPEC.md][doc/SPEC.md]] for the full design.
 
 ** Usage
 :PROPERTIES:
 :CUSTOM_ID: usage
 :END:
-FIXME
+
+*** Installation
+:PROPERTIES:
+:CUSTOM_ID: installation
+:END:
+Not yet published to Clojars, and the final group/artifact id isn't
+decided yet (see [[file:doc/SPEC.md::10.%20Packaging%20(Clojars)][doc/SPEC.md §10]]). Until then, build it locally:
+
+#+begin_src bash
+git clone https://github.com/timotheosh/clj-infisical
+cd clj-infisical && lein install
+#+end_src
+
+then depend on =[clj-infisical "0.1.0-SNAPSHOT"]= from your local
+=~/.m2= as usual.
+
+*** Credentials
+:PROPERTIES:
+:CUSTOM_ID: credentials
+:END:
+The client id/secret for a Universal Auth identity are resolved from,
+in order:
+
+1. The =INFISICAL_CLIENT_ID= / =INFISICAL_CLIENT_SECRET= environment
+   variables (both must be set, or neither).
+2. =/etc/infisical/client_id= and =/etc/infisical/client_secret=, but
+   only if permissions are strict: the directory must be owned by
+   =root= and not group/other-writable, and each file must be owned by
+   the process's own user with no group/other permission bits at all
+   (=0600= or stricter) -- modeled on how OpenSSH checks =~/.ssh=. A
+   file that exists but fails this check is rejected outright rather
+   than silently skipped.
+
+Alternatively, pass =:client-id=/=:client-secret= directly into any call
+below to bypass both -- useful for tests.
+
+*** Fetching a secret
+:PROPERTIES:
+:CUSTOM_ID: fetching-a-secret
+:END:
+#+begin_src clojure
+(require '[clj-infisical.core :as infisical])
+
+;; Just the plaintext value:
+(infisical/get-secret! {:workspace-id "<project/workspace id>"
+                         :secret-name "database-password"
+                         :environment "prod"          ; default "dev"
+                         :secret-path "/backend"       ; default "/"
+                         :site-url "https://kms.example.lan"}) ; default Infisical Cloud
+;; => "hunter2"
+
+;; The full decoded secret object -- every field Infisical returns
+;; (:secret-key, :version, etc.), not just the value:
+(infisical/get-secret-raw! {:workspace-id "<project/workspace id>"
+                             :secret-name "database-password"})
+;; => {:secret-value "hunter2", :secret-key "database-password", :version 3, ...}
+#+end_src
+
+Only =:workspace-id= and =:secret-name= are required. =:site-url=
+defaults to Infisical Cloud (=https://app.infisical.com=) -- always pass
+it explicitly when talking to a self-hosted instance.
+
+*** Error handling
+:PROPERTIES:
+:CUSTOM_ID: error-handling
+:END:
+Failures throw =ex-info= with a namespaced =:type= keyword in
+=ex-data=, so callers can dispatch on failure reason instead of parsing
+a message string:
+
+#+begin_src clojure
+(try
+  (infisical/get-secret! {:workspace-id "ws1" :secret-name "missing"})
+  (catch clojure.lang.ExceptionInfo e
+    (case (:type (ex-data e))
+      :clj-infisical/secret-not-found (println "no such secret")
+      :clj-infisical/auth-failed (println "bad credentials")
+      :clj-infisical/credentials-not-found (println "no credentials configured")
+      (throw e))))
+#+end_src
+
+See [[file:doc/SPEC.md::7.%20Error%20taxonomy][doc/SPEC.md §7]] for the full list of error types.
 
 ** License
 :PROPERTIES:

@@ -775,25 +775,32 @@ This library is intended to be published to Clojars for consumption by other
 projects, so a few things belong in scope even though they don't affect
 `src/`/`test/` content:
 
-- `project.clj` needs real values in place of the `FIXME`s currently there:
-  `:description`, `:url` (repo URL), and a `:license` — EPL-2.0 (the current
-  `lein new` default) is Clojars-compatible and requires no change unless
-  there's a preference otherwise.
-- Group/artifact id: default Leiningen naming gives artifact id
-  `clj-infisical` with group id equal to the artifact id (`clj-infisical`),
-  which is only allowed on Clojars if this account already owns that group,
-  or it's claimed via Clojars' verified-group process. Otherwise this needs
-  a `groupId/artifactId` pair like `org.clojars.<username>/clj-infisical`.
-  This affects `project.clj`'s `defproject` line and is worth deciding
-  before the first deploy, though it doesn't block writing `src`/`test`.
-- Versioning: start at `0.1.0` (drop `-SNAPSHOT` only for the actual
-  release-to-Clojars build); SNAPSHOT versions are not resolvable by
-  consumers off Clojars' release repo.
-- `README.org` currently has `FIXME` usage/license placeholders — needs real
-  usage examples (mirroring `get-secret!`'s signature from §5.6) before
-  first release, since it's what Clojars/cljdoc display.
-- Clojars deploy credentials (token) are a local/CI environment concern, not
-  something this spec or the library's code should reference or embed.
+- `project.clj` — done: real `:description`, `:url`, MIT `:license`
+  (matching the user's stated default for all their projects).
+- Group/artifact id — **decided:** `io.github.timotheosh/clj-infisical`.
+  Clojars requires a *verified* group; a bare `clj-infisical` group (equal
+  to the artifact id) would need this account to already own that name,
+  which it doesn't. `io.github.<username>` is auto-verified the moment the
+  account logs into Clojars via GitHub OAuth as that user — no extra
+  domain/DNS verification step, and it matches the GitHub repo owner
+  (`timotheosh`) exactly. (`net.clojars.<clojars-username>` is the other
+  always-available option, tied to a Clojars account username rather than
+  GitHub — not used here since GitHub-based verification needed no separate
+  account-username decision.)
+- Versioning — **done:** `project.clj` is at `0.1.0` (no `-SNAPSHOT`) for
+  the first release; SNAPSHOT versions aren't resolvable off Clojars'
+  release repo.
+- `:deploy-repositories [["releases" :clojars] ["snapshots" :clojars]]` —
+  added so a bare `lein deploy` (no explicit repo argument) also targets
+  Clojars; `lein deploy clojars` works without this too.
+- `README.org` — done: real usage docs (§ already covered when this file
+  was written) plus install snippets for both Leiningen/Boot and `deps.edn`
+  using the `io.github.timotheosh/clj-infisical` coordinate.
+- Clojars deploy credentials (a deploy token, not the account password —
+  generated at clojars.org/tokens) are a local/CI environment concern the
+  user handles directly (e.g. `~/.lein/credentials.clj.gpg` or
+  `CLOJARS_USERNAME`/`CLOJARS_PASSWORD` env vars); neither this spec nor
+  any assistant session should ever see or store the actual token.
 
 None of this blocks writing tests from §8 or implementing against them —
 it's a pre-`lein deploy` checklist, not a design constraint on the code

@@ -10,11 +10,11 @@
             [clj-infisical.secrets :as secrets]
             [clj-infisical.test-util :as tu]))
 
-(def base-args {:workspace-id "ws1" :secret-name "password"})
+(def base-args {:project-id "ws1" :secret-name "password"})
 (def ^:private secret-fixture {:secret-value "s" :secret-key "k" :version 3})
 
 (deftest invalid-arguments-test
-  (testing "missing workspace-id -> invalid-arguments before any I/O, for both entry points"
+  (testing "missing project-id -> invalid-arguments before any I/O, for both entry points"
     (with-redefs [creds/resolve-credentials! tu/unreachable!
                   auth/login! tu/unreachable!
                   secrets/fetch-secret! tu/unreachable!]
@@ -23,7 +23,7 @@
           (is (= :clj-infisical/invalid-arguments (:type error)))))))
   (testing "missing secret-name"
     (with-redefs [creds/resolve-credentials! tu/unreachable!]
-      (let [{:keys [error]} (tu/try-invoke #(core/get-secret! {:workspace-id "ws1"}))]
+      (let [{:keys [error]} (tu/try-invoke #(core/get-secret! {:project-id "ws1"}))]
         (is (= :clj-infisical/invalid-arguments (:type error)))))))
 
 (deftest explicit-credentials-bypass-resolution-test

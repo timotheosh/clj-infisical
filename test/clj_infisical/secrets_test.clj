@@ -6,7 +6,7 @@
             [clj-infisical.test-util :as tu]))
 
 (def ^:private config-fixture
-  {:workspace-id "ws1" :environment "dev" :secret-path "/" :site-url "https://kms.example.lan"})
+  {:project-id "ws1" :environment "dev" :secret-path "/" :site-url "https://kms.example.lan"})
 
 ;; ---------------------------------------------------------------------
 ;; §8.5 calculations

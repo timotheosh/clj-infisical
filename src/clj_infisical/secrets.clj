@@ -8,7 +8,7 @@
 (defn secret-request
   [config token secret-name]
   {:url (str (:site-url config) "/api/v3/secrets/raw/" secret-name)
-   :query-params {"workspaceId" (:workspace-id config)
+   :query-params {"workspaceId" (:project-id config)
                   "environment" (:environment config)
                   "secretPath" (:secret-path config)}
    :headers {"Authorization" (str "Bearer " (:token token))}})

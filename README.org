@@ -14,7 +14,7 @@ FIXME
 :PROPERTIES:
 :CUSTOM_ID: license
 :END:
-Copyright © 2026 FIXME
+Copyright © 2026 Tim Hawes
 
 This program and the accompanying materials are made available under the
 terms of the MIT license.

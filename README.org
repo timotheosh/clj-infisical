@@ -55,7 +55,7 @@ below to bypass both -- useful for tests.
 (require '[clj-infisical.core :as infisical])
 
 ;; Just the plaintext value:
-(infisical/get-secret! {:workspace-id "<project/workspace id>"
+(infisical/get-secret! {:project-id "<project id>"
                          :secret-name "database-password"
                          :environment "prod"          ; default "dev"
                          :secret-path "/backend"       ; default "/"
@@ -64,12 +64,12 @@ below to bypass both -- useful for tests.
 
 ;; The full decoded secret object -- every field Infisical returns
 ;; (:secret-key, :version, etc.), not just the value:
-(infisical/get-secret-raw! {:workspace-id "<project/workspace id>"
+(infisical/get-secret-raw! {:project-id "<project id>"
                              :secret-name "database-password"})
 ;; => {:secret-value "hunter2", :secret-key "database-password", :version 3, ...}
 #+end_src
 
-Only =:workspace-id= and =:secret-name= are required. =:site-url=
+Only =:project-id= and =:secret-name= are required. =:site-url=
 defaults to Infisical Cloud (=https://app.infisical.com=) -- always pass
 it explicitly when talking to a self-hosted instance.
 
@@ -83,7 +83,7 @@ a message string:
 
 #+begin_src clojure
 (try
-  (infisical/get-secret! {:workspace-id "ws1" :secret-name "missing"})
+  (infisical/get-secret! {:project-id "ws1" :secret-name "missing"})
   (catch clojure.lang.ExceptionInfo e
     (case (:type (ex-data e))
       :clj-infisical/secret-not-found (println "no such secret")

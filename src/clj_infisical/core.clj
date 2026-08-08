@@ -5,22 +5,22 @@
             [clj-infisical.secrets :as secrets]))
 
 (defn- -fetch-secret!
-  [{:keys [workspace-id environment secret-path secret-name
+  [{:keys [project-id environment secret-path secret-name
            site-url client-id client-secret]
     :or {environment "dev"
          secret-path "/"
          site-url "https://app.infisical.com"}}]
-  (when (or (nil? workspace-id) (nil? secret-name))
-    (throw (ex-info "workspace-id and secret-name are required"
+  (when (or (nil? project-id) (nil? secret-name))
+    (throw (ex-info "project-id and secret-name are required"
                      {:type :clj-infisical/invalid-arguments
                       :missing-keys (cond-> []
-                                      (nil? workspace-id) (conj :workspace-id)
+                                      (nil? project-id) (conj :project-id)
                                       (nil? secret-name) (conj :secret-name))})))
   (let [resolved-creds (if (and client-id client-secret)
                           {:client-id client-id :client-secret client-secret :source :explicit}
                           (creds/resolve-credentials!))
         token (auth/login! site-url resolved-creds)
-        config {:workspace-id workspace-id :environment environment
+        config {:project-id project-id :environment environment
                 :secret-path secret-path :site-url site-url}]
     (secrets/fetch-secret! config token secret-name)))
 

@@ -88,10 +88,16 @@ GET {site-url}/api/v3/secrets/raw/{secret-name}?workspaceId=...&secretPath=...&e
 Authorization: Bearer <access-token>
 ```
 
-- `workspaceId` — required. (Infisical's UI/newer docs call this concept
-  "project"; the `/api/v3/secrets/raw` endpoint's query parameter is
-  `workspaceId`, so this library uses that name to match the wire format
-  exactly rather than translating it.)
+- `workspaceId` — required on the wire. **Public API uses `:project-id`,
+  not `:workspace-id`** (revised from the earlier draft — see §9): Infisical's
+  own API surface is inconsistent about this across versions — the `v3`
+  endpoint used here says `workspaceId`, while the newer `v4` endpoint
+  (`GET /api/v4/secrets/{name}`) says `projectId`, matching current
+  UI/CLI terminology. `secret-request` (§5.5) is the one place that
+  translates the public `:project-id` into the `workspaceId` query
+  param this endpoint actually expects — isolating that translation
+  there means a future migration to `v4` only touches `secret-request`,
+  not every caller of this library.
 - `environment` — required by this library (defaulted, see §5.6) so callers
   always know which environment they read.
 - `secretPath` — optional, defaults to `/`.
@@ -151,7 +157,7 @@ Documented here as shapes, not code.
 | Name | Shape |
 |---|---|
 | `Credentials` | `{:client-id string, :client-secret string, :source #{:env :file}}` |
-| `Config` | `{:workspace-id string, :environment string, :secret-path string, :site-url string}` |
+| `Config` | `{:project-id string, :environment string, :secret-path string, :site-url string}` |
 | `AccessToken` | `{:token string, :expires-in int, :token-type string}` |
 | `Secret` | The response's `secret` object, keywordized, passed through as-is. `:secret-value` is the only key this library guarantees (throws `:invalid-response` if absent); every other key Infisical happens to include (`:secret-key`, `:version`, ...) rides along unexamined. |
 | `ErrorData` | `{:type keyword, :status int, :body string, :parsed (map or nil)}` — `:parsed` is the JSON-decoded response body when it decodes, else `nil`. Carried into the thrown `ex-info`'s `ex-data` (§7) so callers can read Infisical's own error `message` without re-parsing `:body` themselves. |
@@ -301,7 +307,10 @@ with plain maps instead of a mocked HTTP client.
 - `secret-request [^Config config ^AccessToken token secret-name] -> {:url ..., :query-params ..., :headers ...}`
   Pure request assembly per §3.2: `url` is
   `{site-url}/api/v3/secrets/raw/{secret-name}`, `query-params` is
-  `{"workspaceId" ... "environment" ... "secretPath" ...}`.
+  `{"workspaceId" (:project-id config) "environment" ... "secretPath" ...}`
+  — this is the one place `:project-id` (public API, §5.1/§5.6) gets
+  translated into `workspaceId` (the wire param this endpoint actually
+  expects, §3.2).
 - `parse-secret-response [{:keys [status body]}] -> Secret | ErrorData`
   Pure: `200` → keywordize the whole `secret` object into `Secret` (§5.1),
   passing every key through, requiring only `:secret-value` to be present;
@@ -322,7 +331,7 @@ with plain maps instead of a mocked HTTP client.
 Two public entry points, sharing one private orchestration action so neither
 duplicates credential resolution / login / fetch:
 
-- `-fetch-secret! [{:keys [workspace-id environment secret-path secret-name
+- `-fetch-secret! [{:keys [project-id environment secret-path secret-name
                             site-url client-id client-secret]
                      :or {environment "dev"
                           secret-path "/"
@@ -331,7 +340,7 @@ duplicates credential resolution / login / fetch:
   (private, `-` prefix; not part of the public API). Orchestration only (an
   action composed of other actions — no new decisions of its own):
 
-  1. `workspace-id` and `secret-name` are required; missing either throws
+  1. `project-id` and `secret-name` are required; missing either throws
      `:clj-infisical/invalid-arguments` before any I/O happens (cheap
      calculation-style guard, checked first on purpose).
   2. If `client-id`/`client-secret` are both supplied in the argument map,
@@ -401,10 +410,10 @@ document stays the authoritative namespace list.
 | `INFISICAL_CLIENT_ID` | no (see §5.2) | Universal Auth client id |
 | `INFISICAL_CLIENT_SECRET` | no (see §5.2) | Universal Auth client secret |
 
-`workspace-id`, `environment`, `secret-path`, `site-url` are **not** read
+`project-id`, `environment`, `secret-path`, `site-url` are **not** read
 from the environment in v1 — they're per-call arguments, because this
 library is meant to be embedded in other projects that may talk to multiple
-workspaces/environments (and, per the corrected §3, is regularly used
+projects/environments (and, per the corrected §3, is regularly used
 against self-hosted instances, so `site-url` in particular must not silently
 default to Infisical Cloud in a way a caller could forget to override).
 Ambient config for those would be a footgun (silent cross-environment
@@ -432,7 +441,7 @@ along in `ex-data` depends on the error's origin (this is what §5.1's
 
 | `:type` | Thrown by | Meaning |
 |---|---|---|
-| `:clj-infisical/invalid-arguments` | `get-secret!`, `get-secret-raw!` | Missing `workspace-id` or `secret-name` |
+| `:clj-infisical/invalid-arguments` | `get-secret!`, `get-secret-raw!` | Missing `project-id` or `secret-name` |
 | `:clj-infisical/credentials-not-found` | `resolve-credentials!` | No env vars, no usable files |
 | `:clj-infisical/ambiguous-credentials` | `resolve-credentials!` | Exactly one of the two env vars set |
 | `:clj-infisical/insecure-credential-files` | `resolve-credentials!` | Dir/file exists but fails permission/owner/symlink check; `:reason` names which |
@@ -641,7 +650,7 @@ boundary function rebound (`with-redefs`) to fake I/O, since real
 These two share `-fetch-secret!` (§5.6), so most scenarios are phrased
 against both; only the final return-shape scenario differs between them.
 
-- Given `workspace-id` missing from the argument map, when either is
+- Given `project-id` missing from the argument map, when either is
   called, then throws `:clj-infisical/invalid-arguments` **without**
   calling `resolve-credentials!`, `login!`, or `fetch-secret!` (proves the
   guard runs first — rebind all three to throw if invoked).
@@ -694,6 +703,21 @@ test-writing. Kept here as a record of *why*, not as open items:
   response's real `message`/`error` fields are directly available instead
   of forcing every caller to re-parse `:body` to get at Infisical's actual
   error text.
+- **`:workspace-id` renamed to `:project-id`** (§5.1/§3.2) — the public API
+  originally matched the `v3` wire parameter (`workspaceId`) exactly, on the
+  reasoning that a name traceable 1:1 to the wire format needs no
+  translation layer when cross-referencing Infisical's own docs/errors/logs.
+  Revisited once it became clear the naming split runs deeper than
+  UI-vs-wire: Infisical's *own* API is inconsistent about this across
+  versions — `v3` (`/api/v3/secrets/raw`, what this library calls) says
+  `workspaceId`; the newer `v4` (`/api/v4/secrets/{name}`) says `projectId`,
+  matching current UI/CLI terminology. Since the library is unreleased (no
+  back-compat burden yet) and Infisical appears to be moving toward `v4`,
+  matching wire-format-of-the-moment was the wrong axis to optimize for.
+  `:project-id` now matches current terminology and insulates callers from
+  a future `v3`→`v4` migration; `secret-request` (§5.5) is the one place
+  that translates `:project-id` into the `workspaceId` query param `v3`
+  still expects.
 - **Directory permission rule** (§5.2 rule 3) — root-owned `/etc/infisical`,
   no group/other *write* bits, group/other read+execute permitted. Modeled
   explicitly on OpenSSH's own permission check on `~/.ssh`, which rejects
